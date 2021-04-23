@@ -7,4 +7,4 @@ Kaggle : https://www.kaggle.com/greenwing1985/housepricing
 
 ## --Result--
 You can also see on my RPubs : https://rpubs.com/gashasp/regression-model-house-price
-<img src="https://github.com/gashasp/Visualization-Shiny-with-Supermarket-Data/blob/main/Capturee.JPG">
+<img src="https://github.com/gashasp/Regression-Model-House-Price/blob/main/Capturee.JPG">
