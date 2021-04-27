@@ -2,7 +2,7 @@
 Make regresion model to see important varibel for house pricing
 
 ## --Raw Data--
-Kaggle : https://www.kaggle.com/greenwing1985/housepricing
+Kaggle : https://www.kaggle.com/ronitf/heart-disease-uci
 <img src="https://github.com/gashasp/Regression-Model-House-Price/blob/main/Capture.JPG">
 
 ## --Result--
