@@ -1,0 +1,383 @@
+---
+title: "Analisis Regresi Model Terhadap Harga Rumah"
+author: "Gasha Sarwono"
+output: 
+  html_document:
+    theme: flatly
+    higlight: zenburn
+    toc: true
+    toc_float:
+      collapsed: false
+    df_print: paged
+---
+
+![](D:\Data Scientist\house_price.jpg)
+
+### 1. Latar Belakang
+
+#### Berikut ini merupakan data harga rumah beserta fitur-fitur yang ada pada rumah tersebut. 
+
+#### Tujuan saya menggunakan data ini adalah untuk menganalisis dan melihat fitur-fitur apa saja yang menjadi penting dalam menentukan sebuah harga rumah. Karena banyak dari kita ingin membeli/menjual rumah tetapi tidak tahu apa saja fitur yang bisa mempengaruhi harga dari sebuah rumah. Jadi dengan analisis yang akan dibuat ini diharapkan dapat membantu pembeli/penjual rumah dalam mengetahui harga rumah yang sesuai.
+
+#### Deskripsi Data:
+##### -Area : Nomor wilayah
+##### -Garage : Garasi
+##### -Baths : Kamar mandi
+##### -White Marble : Marmer Putih
+##### -Black Marble : Marmer Hitam
+##### -Floors : Jumlah lantai
+##### -City : Nomor kota
+##### -Solar : Pencahayaan
+##### -Electric : Listrik
+##### -Fiber : Kabel Listrik
+##### -Glass Door : Pintu kaca
+##### -Swiming Pool : Kolam renang
+##### -Garden : Halaman
+##### -Price : Harga Rumah
+
+#### Data yang saya gunakan berasal dari kaggle dengan link sebagai berikut:
+
+#### https://www.kaggle.com/smailnderakmanus/price-estimate-with-machine-learning
+
+### 2. Set Up
+
+**Aktifkan library**
+
+```{r message=FALSE, warning=FALSE}
+
+library(ggplot2) #membuat plot
+library(tidyverse) #wrangling data
+library(lmtest) #cek asumsi
+library(car) #cek fungsi vif
+library(MLmetrics) #menghitung eror
+library(GGally) #cek korelasi
+library(rsample) #sampling data
+
+options(scipen = 999, max.print = 1e+06) #Panjang angka dibelakang koma
+```
+
+**Import Data**
+
+```{r}
+house <- read.csv("HousePrices_HalfMil.csv", sep=",", na.strings = c("N/A"))
+house
+```
+### 3. Inspeksi Data
+
+**Mengecek tipe data**
+
+```{r}
+glimpse(house)
+```
+Tipe data yang ada pada setiap variabel sudah sesuai, yaitu bertipe data numerik atau integer.
+
+**Mengecek data yang missing**
+
+```{r}
+colSums(is.na(house))
+```
+Masing-masing variabel tidak mempunyai data kosong atau tidak terdapat missing value.
+
+### 4. Exploratory Data Analysis
+
+**Mengecek korelasi antar variabel**
+
+```{r}
+ggcorr(house, label = T, label_size = 3.5, hjust=1, layout.exp = 2)
+```
+
+Bisa dilihat bahwa 3 variabel yg mempunyai korelasi tertinggi dengan Prices adalah Floor, Fiber dan White Marble. Sedangkan variabel yg mempunyai korelasi terendah dengan Prices adalah Indian Marble.
+
+**Mengecek distribusi untuk masing-masing variabel**
+
+*Variabel Area dipisah karena mempunyai isi nilai yg tinggi atau berbeda dengan variabel lainnya.*
+
+```{r}
+#Variabel Area
+house %>% 
+  select(Area) %>% 
+  boxplot()
+```
+```{r}
+#Variabel Selain Area
+house %>% 
+  select(-c(Prices,Area)) %>% 
+  boxplot()
+```
+
+
+Dari hasil visualisasi boxplot, tidak ditemukan outlier pada masing-masing variabel, sehingga data tersebut sudah dapat dianalisis lebih lanjut.
+
+### 5. Pembuatan Model Regresi
+
+**Pembuatan data test menggunakan random sampling**
+
+```{r message=F, warning=F}
+
+RNGkind(sample.kind = "Rounding")
+set.seed(1616)
+init <- initial_split(house,
+                      prop = 0.8, #proporsi data sebanyak 0.8 (80%)
+                      strata = Prices) #strata = target variable 
+house_train <- training(init) #membuat model
+house_test <- testing(init) #mengetest model
+```
+
+#### 5.1 Model Regresi berdasarkan nilai korelasi
+
+Dikarnakan variabel Floor, Fiber dan White Marble merupakan variabel dengan nilai korelasi tertinggi dengan Prices, maka varibel-variabel tersebut kita jadikan sebagai variabel prediktor dalam membuat model regresi linear.
+
+**Membuat dan melihat summary dari model regresi**
+
+```{r}
+model_house1 <- lm(Prices~Floors+Fiber+White.Marble,house_train)
+summary(model_house1)
+```
+***Dari hasil Summary model_house1 diatas didapat informasi yaitu:***
+
+*1. Nilai Adjusted R-Squared adalah 0.8185 atau 81.8% model tersebut dapat menjelaskan variasi nilai dari Prices.*
+
+*2. Nilai p-value dari dari masing-masing varibel prediktor kurang dari 0.05 (p-value < 0.05), maka bisa dianggap masing-masing variabel prediktor (Floor, Fiber, White.Marble) signifikan atau berpengaruh terhadap variabel target (Prices)*
+
+*3. Setiap variabel mempunyai nilai tambah untuk target variabel, untuk lebih lengkapnya bisa dilihat pada formula berikut ini*
+
+$$
+Prices = 24865.90 + (14983.38\times Floors) + (11716.58\times Fiber) + (11522.57\times White\ Marble)
+$$
+
+#### 5.2 Model Regresi berdasarkan stepwise regression
+
+Selain menentukan variabel prediktor menggunakan nilai korelasi, penentuan variabel prediktor juga dapat menggunakan stepwise regression yang dapat menentukan variabel prediktor terbaik bedasarkan nilai AIC (Akaike Information Criterion).
+
+**Membuat dan melihat summary dari model regresi**
+
+```{r}
+
+#Mengambil semua variabel prediktor dan menyeleksinya menggunakan stepwise dengan direction "both"
+model_house_full <- lm(Prices~.,house_train)
+model_house2 <- step(model_house_full, direction = "both")
+summary(model_house2)
+```
+***Dari hasil Summary model_house2 diatas didapat informasi yaitu:***
+
+*1. Nilai AIC terbaik (terendah) adalah -15228109*
+
+*2. Nilai Adjusted R-Squared adalah 1 atau 100% model tersebut dapat menjelaskan variasi nilai dari Prices.*
+
+*3. Nilai p-value dari dari masing-masing varibel prediktor kurang dari 0.05 (p-value < 0.05), maka bisa dianggap masing-masing variabel prediktor signifikan atau berpengaruh terhadap variabel target (Prices)*
+
+*4. Setiap variabel mempunyai nilai tambah untuk target variabel, untuk lebih lengkapnya bisa dilihat pada formula berikut ini*
+
+$$
+Prices = 1000.00 + (25.00\times Area) + (1499.99\times Garage) + (749.99\times Fire\ Place) + (1249.99\times Baths) + (14000.00\times White\ Marble)\ +
+$$
+
+$$
+(5000.00\times Black\ Marble) + (15000.00\times Floors) + (3499.99\times City)\ + (250.00\times Solar) + (1250.00\times Electric)\ +
+$$
+
+
+
+$$
+(11750.00\times Fiber) + (4450.00\times Glass\ Doors)
+$$
+
+### 6. Evaluasi Model
+
+Setelah membuat formula untuk target variabel, selanjutnya adalah mengevaluasi apakah formula tersebut sudah sesuai sesuai dengan cara membuat model dari masing-masing formula 
+
+#### 6.1 model_house1
+
+**Prediksi**
+
+```{r}
+pred_test1 <- predict(model_house1, newdata = house_test)
+head(pred_test1)
+```
+
+**Cek Eror**
+
+$$
+RMSE = \sqrt{\frac{1}{n} \sum (\hat y - y)^2}
+$$
+```{r}
+#Root Mean Squared Eror
+RMSE(pred_test1, house_test$Prices)
+```
+Dengan mengecek eror menggunakan RMSE (Root Mean Squared Eror) dapat lihat bahwa model akan melenceng dari data aktual sebanyak 5147.273
+
+**Asumsi**
+
+*Multikolinearitas*
+
+```{r}
+vif(model_house1) 
+```
+Nilai masing-masing variabel prediktor kurang dari 10, yang berarti antar masing-masing prediktor tidak memiliki kemiripan karakteristik
+
+*Normality*
+
+```{r}
+qqPlot(model_house1$residuals)
+```
+
+Dapat dilihat value (point) dari data mengikuti bentuk garis linear, yang berati data berdistribusi normal
+
+Melihat grafik distribusi normal
+
+```{r}
+plot(density(model_house1$residuals))
+```
+
+Dari hasil grafik/plot dapat dilihat bentuk dari grafik berbentuk seperti lonceng dengan titik puncak berada pada angka 0, jadi dapat dikatakan bahwa model berdistribusi normal
+
+*Heterodasticity*
+
+```{r}
+plot(model_house1$fitted.values, #prediksi
+     model_house1$residuals) #eror
+```
+
+Bentuk dari value (point) tidak membentuk sebuah pola tertentu
+
+Pengecekan p-value, menggunakan bptest 
+
+```{r}
+bptest(model_house1)
+```
+Hasil bptest dari model didapat nilai p-value < 0.05 yang berarti asumsi tidak terpenuhi
+
+*Linearity*
+
+Pengecekan korelasi target variabel dengan prediktor variabel
+
+```{r}
+ggcorr(house %>% 
+         select(Floors,Fiber,White.Marble,Prices),
+         label = T, label_size = 3.5, hjust=1, layout.exp = 2)
+```
+
+Dapat dilihat nilai korelasi target dengan prediktor, memiliki nilai yang cukup tinggi. 
+
+- Prices dengan White.Marble : 0.4
+- Prices dengan Fiber : 0.5
+- Prices dengan Floors : 0.6
+
+```{r message = FALSE,warning = FALSE}
+data.frame(prediksi = model_house1$fitted.values,
+            error = model_house1$residuals) %>% 
+  ggplot(aes(prediksi, error)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth()
+```
+
+**Summary Model**
+
+*Setelah model_house1 diprediksi dan dicek nilai errornya menggunakan RMSE, didapat nilai 5147.273 yang berati model_house1 dapat melenceng sebesar nilai tersebut. Lalu pengecekan asumsi menggunakan Multikolinearitas, Normality, Heterodasticity, dan Linearity hasilnya tidak semua asumsi yang dilakukan terpenuhi.
+
+#### 6.2 model_house2
+
+**Prediksi**
+
+```{r}
+pred_test2 <- predict(model_house2, newdata = house_test)
+head(pred_test2)
+```
+
+**Cek Eror**
+
+$$
+RMSE = \sqrt{\frac{1}{n} \sum (\hat y - y)^2}
+$$
+```{r}
+#Root Mean Squared Eror
+RMSE(pred_test2, house_test$Prices)
+```
+Dengan mengecek eror menggunakan RMSE (Root Mean Squared Eror) dapat lihat bahwa model yang akan melenceng dari data aktual sebanyak 0.000000005409621
+
+**Asumsi**
+
+*Multikolinearitas*
+
+```{r}
+vif(model_house2) 
+```
+Nilai masing-masing variabel prediktor kurang dari 10, yang berarti antar masing-masing prediktor tidak memiliki kemiripan karakteristik
+
+*Normality*
+
+```{r}
+qqPlot(model_house2$residuals)
+```
+
+Dapat dilihat value (point) dari data mengikuti bentuk garis linear, yang berati data berdistribusi normal walaupun ada nilai yg outlier
+
+```{r}
+plot(density(model_house2$residuals))
+```
+
+Dari hasil grafik/plot dapat dilihat bahwa model berdistribusi normal dengan yang sangat kecil
+
+*Heterodasticity*
+
+```{r}
+plot(model_house2$fitted.values, #prediksi
+     model_house2$residuals) #eror
+```
+
+```{r}
+bptest(model_house2)
+```
+Hasil bptest dari model didapat nilai p-value > 0.05 yang berarti asumsi terpenuhi
+
+*Linearity*
+
+```{r}
+ggcorr(house %>% 
+         select(Area,Garage,FirePlace,Baths,White.Marble,Black.Marble,Floors,City,Solar,Electric,Fiber,Glass.Doors,Prices),
+         label = T, label_size = 3.5, hjust=1, layout.exp = 2)
+```
+
+Dapat dilihat hasil pengecekan korelasi terdapat beberapa variabel prediktor yg berhubungan dengan variabel target (berwarna orange) dan yang tidak berhubungan (berwarna biru)
+
+```{r message = FALSE,warning = FALSE}
+data.frame(prediksi = model_house2$fitted.values,
+            error = model_house2$residuals) %>% 
+  ggplot(aes(prediksi, error)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth()
+```
+
+**Summary Model**
+
+*Setelah model_house2 diprediksi dan dicek nilai errornya menggunakan RMSE, didapat nilai 0.000000005409621 yang berati model_house2 dapat melenceng sebesar nilai tersebut. Lalu pengecekan asumsi menggunakan Multikolinearitas, Normality, Heterodasticity, dan Linearity hasilnya asumsi yang dilakukan terpenuhi walaupun terdapat outlier dimodel tersebut.
+
+### 7. Kesimpulan
+
+**Model Performa**
+
+```{r}
+model <- c("model_house1", "model_house2")
+R_Squared <- c(0.8185,1.0000)
+RMSE <- c(5147.273,0.000000005409621 )
+
+tabelmodel <- data.frame(model,R_Squared,RMSE)
+
+print (tabelmodel)
+```
+
+
+**Berdasarkan pembuatan 2 model diatas (model_house1 dan model_house2) dapat disimpulkan bahwa:**
+
+**1. R-Squared**
+**model_house1 memiliki nilai 0.8185 sedangkan model_house2 memiliki nilai 1, jadi dapat dikatakan berdasarkan nilai R-Squared untuk model_house2 lebih dipilih karena model dapat menjelas variasi nilai dari Prices sebesar 1 (100%)**
+
+**2. Error**
+**Dari hasil pengujian Error dengan menggunakan RMSE (Root Mean Squared Eror) model_house1 memiliki nilai 5147.273 sedangkan model_house2 memiliki nilai 0.000000005409621, jadi dapat dikatakan berdasarkan nilai Error untuk model_house2 lebih dipilih karena kemungkinan model yang akan melenceng dari data aktual hanya sebesar 0.000000005409621**
+
+**3. Asumsi**
+**Dari hasil asumsi untuk kedua model berdasarkan grafik dan test yang dilakukan, bahwa model_house2 lebih dipilih dibandingkan dengan model_house1**
+
+**Jadi dapat disimpulkan dalam menentukan harga rumah, variabel yang penting dapat dilihat dari model_house2. Variabel yang penting tersebut yaitu Area, Garage, FirePlace, Baths, White.Marble, Black.Marble, Floors, City, Solar, Electric, Fiber dan Glass.Doors.**
